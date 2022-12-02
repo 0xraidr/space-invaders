@@ -16,6 +16,7 @@ use space_invaders::{
     frame::{self, new_frame, Drawable, Frame},
     render,
     player::Player,
+    invaders::Invaders,
 
 };
 
@@ -55,6 +56,7 @@ let render_handle = thread::spawn(move || {
 // Game Loop
 let mut player = Player::new();
 let mut instant = Instant::now();
+let mut invaders = Invaders::new();
 'gameloop: loop {
     // Per-frame init
     let delta = instant.elapsed();
@@ -82,12 +84,32 @@ let mut instant = Instant::now();
 
     // Updates
     player.update(delta);
+    if invaders.update(delta) {
+        audio.play("move");
+    }
+    let hits: u16 = player.detect_hits(&mut invaders);
+    if hits > 0 {
+        audio.play("explode");
+    }
 
 
     // Draw & render
-    player.draw(&mut curr_frame);
+    let drawables: Vec<&dyn Drawable> = vec![&player, &invaders];
+    for drawable in drawables {
+        drawable.draw(&mut curr_frame)
+    }
    let _ = render_tx.send(curr_frame);
    thread::sleep(Duration::from_millis(1));
+
+    // Win or Lose
+    if invaders.all_killed() {
+        audio.play("win");
+        break 'gameloop;
+    }
+    if invaders.reached_bottom() {
+        audio.play("lose");
+        break 'gameloop;
+    }
 }
 
 
